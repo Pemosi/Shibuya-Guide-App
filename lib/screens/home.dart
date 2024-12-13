@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+// ignore: depend_on_referenced_packages
+import 'package:http/http.dart' as http;
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:shibuya_app/env/env.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,23 +18,27 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late GoogleMapController mapController;
   final Set<Marker> _markers = {};
+  final List<LatLng> _polylineCoordinates = [];
   late BitmapDescriptor _customIcon;
-  double _currentZoom = 14.0; // 初期ズームレベル
+  double _currentZoom = 14.0;
+
+  Position? _currentPosition; // null許容型に変更
+  final LatLng _shibuyaLatLng = const LatLng(35.658034, 139.701636); // 渋谷駅の座標
 
   @override
   void initState() {
     super.initState();
-    // _getCurrentLocation(); // 初期位置はonMapCreatedで取得するように変更
-    // _loadCustomMarker();
+    _getCurrentLocation();
+    _loadCustomMarker();
   }
 
-  /// 現在地を取得してカメラを移動
+  /// 現在地を取得
   Future<void> _getCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-          // ignore: deprecated_member_use
           desiredAccuracy: LocationAccuracy.high);
       setState(() {
+        _currentPosition = position;
       });
 
       mapController.animateCamera(
@@ -42,52 +51,88 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } catch (e) {
       print("Error getting location: $e");
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("現在地を取得できませんでした")));
+    }
+  }
+
+  /// ルートを取得しPolylineを描画
+  Future<void> _getRoute() async {
+    if (_currentPosition == null) {
+      // 現在地が取得できていない場合のエラーハンドリング
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("現在地が取得できていません")),
+      );
+      return;
+    }
+
+    try {
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
+        '&destination=${_shibuyaLatLng.latitude},${_shibuyaLatLng.longitude}'
+        '&key=${Env.key}',
+      );
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if ((data['routes'] as List).isNotEmpty) {
+          final polylinePoints = PolylinePoints();
+          final points = polylinePoints.decodePolyline(
+              data['routes'][0]['overview_polyline']['points']);
+
+          setState(() {
+            _polylineCoordinates.clear();
+            for (var point in points) {
+              _polylineCoordinates
+                  .add(LatLng(point.latitude, point.longitude));
+            }
+          });
+        }
+      } else {
+        throw Exception('Failed to load directions');
+      }
+    } catch (e) {
+      print("Error fetching directions: $e");
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("ルートを取得できませんでした")));
     }
   }
 
   /// カスタムマーカーをロード
-  // Future<void> _loadCustomMarker() async {
-  //   // ignore: deprecated_member_use
-  //   _customIcon = await BitmapDescriptor.fromAssetImage(
-  //     const ImageConfiguration(size: Size(48, 48)),
-  //     'assets/custom_marker.png', // カスタムアイコンのパス
-  //   );
-  // }
-
-  /// マーカーを追加
-  void _addMarker(LatLng position) {
-    setState(() {
-      _markers.add(
-        Marker(
-          markerId: MarkerId(position.toString()),
-          position: position,
-          icon: _customIcon,
-          infoWindow: InfoWindow(
-            title: 'カスタムマーカー',
-            snippet: '緯度: ${position.latitude}, 経度: ${position.longitude}',
-          ),
-        ),
-      );
-    });
+  Future<void> _loadCustomMarker() async {
+    // ignore: deprecated_member_use
+    _customIcon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(48, 48)),
+      'assets/custom_marker.png',
+    );
   }
 
   /// 地図のズームを更新
   void _zoomIn() {
-    setState(() {
-      _currentZoom += 1; // ズームイン
-      mapController.animateCamera(
-        CameraUpdate.zoomTo(_currentZoom),
-      );
-    });
+    if (_currentZoom < 20) {
+      setState(() {
+        _currentZoom += 1;
+        mapController.animateCamera(
+          CameraUpdate.zoomTo(_currentZoom),
+        );
+      });
+    }
   }
 
   void _zoomOut() {
-    setState(() {
-      _currentZoom -= 1; // ズームアウト
-      mapController.animateCamera(
-        CameraUpdate.zoomTo(_currentZoom),
-      );
-    });
+    if (_currentZoom > 5) {
+      setState(() {
+        _currentZoom -= 1;
+        mapController.animateCamera(
+          CameraUpdate.zoomTo(_currentZoom),
+        );
+      });
+    }
   }
 
   @override
@@ -100,6 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.my_location),
             onPressed: _getCurrentLocation,
           ),
+          IconButton(
+            icon: const Icon(Icons.navigation),
+            onPressed: _getRoute, // ルート案内ボタン
+          ),
         ],
       ),
       body: Stack(
@@ -111,34 +160,37 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onMapCreated: (GoogleMapController controller) {
               mapController = controller;
-              // 地図作成後に現在地を取得
               _getCurrentLocation();
             },
-            markers: _markers,
+            markers: {
+              Marker(
+                markerId: const MarkerId('Shibuya'),
+                position: _shibuyaLatLng,
+                infoWindow: const InfoWindow(
+                  title: '渋谷駅',
+                  snippet: '目的地',
+                ),
+              ),
+              if (_currentPosition != null)
+                Marker(
+                  markerId: const MarkerId('CurrentLocation'),
+                  position:
+                      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                  infoWindow: const InfoWindow(
+                    title: '現在地',
+                  ),
+                ),
+            },
+            polylines: {
+              Polyline(
+                polylineId: const PolylineId('Route'),
+                color: Colors.blue,
+                width: 5,
+                points: _polylineCoordinates,
+              ),
+            },
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
-            onLongPress: _addMarker,
-          ),
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: Column(
-              children: [
-                FloatingActionButton(
-                  heroTag: "zoomIn",
-                  mini: true,
-                  onPressed: _zoomIn,
-                  child: const Icon(Icons.add), // 拡大ボタン
-                ),
-                const SizedBox(height: 10),
-                FloatingActionButton(
-                  heroTag: "zoomOut",
-                  mini: true,
-                  onPressed: _zoomOut,
-                  child: const Icon(Icons.remove), // 縮小ボタン
-                ),
-              ],
-            ),
           ),
         ],
       ),
