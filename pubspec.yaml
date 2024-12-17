@@ -22,6 +22,11 @@ dependencies:
   envied: ^1.0.0
   url_launcher: ^6.3.1
   flutter_polyline_points: ^2.1.0
+  image_picker: ^1.1.2
+  firebase_storage: ^11.6.5
+  camera: ^0.11.0+2
+  path_provider: ^2.1.5
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:

@@ -53,5 +53,13 @@
 	<string>アプリ使用中の位置情報利用を許可してください。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>常時およびアプリ使用中の位置情報利用を許可してください。</string>
+
+	<!-- Camera and gallery usage keys -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>カメラのアクセスを許可してください</string>
+	<key>NSCameraUsageDescription</key>
+	<string>投稿機能にカメラで撮影した写真をアプリ内に表示するため、カメラ機能を許可してください。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>写真を保存するためにアクセスを許可してください。</string>
 </dict>
 </plist>
