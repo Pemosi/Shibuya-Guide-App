@@ -2,7 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shibuya_app/env/env.dart';
-import 'package:shibuya_app/routes.dart'; // routes.dart をインポート
+import 'package:shibuya_app/routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
