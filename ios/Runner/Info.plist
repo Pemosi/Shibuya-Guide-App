@@ -61,5 +61,9 @@
 	<string>投稿機能にカメラで撮影した写真をアプリ内に表示するため、カメラ機能を許可してください。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>写真を保存するためにアクセスを許可してください。</string>
+
+	<!-- Microphone usage key -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ビデオ撮影の際に音声を録音するため、マイクへのアクセスを許可してください。</string>
 </dict>
 </plist>

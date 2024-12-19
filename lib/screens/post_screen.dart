@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:shibuya_app/screens/take_picture_screen.dart';
+import 'package:shibuya_app/service/location_service.dart';
+import 'package:shibuya_app/service/storage_service.dart';
 
 class PostScreen extends StatefulWidget {
   const PostScreen({super.key});
@@ -27,30 +27,16 @@ class _PostScreenState extends State<PostScreen> {
     _getCurrentLocation();
   }
 
-  // 現在地を取得
   Future<void> _getCurrentLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-          // ignore: deprecated_member_use
-          desiredAccuracy: LocationAccuracy.high);
-      setState(() {
-        _currentPosition = position;
-      });
-    } catch (e) {
-      print("Error getting location: $e");
-    }
+    _currentPosition = await LocationService.getCurrentLocation(context);
+    setState(() {}); // 画面更新
   }
 
-  // カメラで写真を撮る
   Future<void> _takePicture() async {
-    final cameras = await availableCameras();
-    final camera = cameras.first;
-
     final result = await Navigator.push<File>(
-      // ignore: use_build_context_synchronously
       context,
       MaterialPageRoute(
-        builder: (context) => CameraScreen(camera: camera),
+        builder: (context) => const TakePictureScreen(),
       ),
     );
 
@@ -61,27 +47,12 @@ class _PostScreenState extends State<PostScreen> {
     }
   }
 
-  // 画像をFirebase Storageにアップロード
-  Future<String?> _uploadImage(File image) async {
-    try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('posts/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await storageRef.putFile(image);
-      return await storageRef.getDownloadURL();
-    } catch (e) {
-      print("Error uploading image: $e");
-      return null;
-    }
-  }
-
-  // 投稿をFirestoreに保存
   Future<void> _savePost() async {
     if (_formKey.currentState!.validate() && _currentPosition != null) {
       String? imageUrl;
 
       if (_image != null) {
-        imageUrl = await _uploadImage(_image!);
+        imageUrl = await StorageService.uploadImage(_image!);
       }
 
       await FirebaseFirestore.instance.collection('posts').add({
@@ -95,7 +66,8 @@ class _PostScreenState extends State<PostScreen> {
 
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('投稿が成功しました！')));
+        const SnackBar(content: Text('投稿が成功しました！')),
+      );
 
       _titleController.clear();
       _descriptionController.clear();
@@ -157,26 +129,15 @@ class _PostScreenState extends State<PostScreen> {
                       height: 200,
                       fit: BoxFit.cover,
                     )
-                  : const Text('画像が選択されていません'),
+                  : const Text(
+                      '写真が選択されていません',
+                      style: TextStyle(color: Colors.grey),
+                    ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _takePicture,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('カメラ'),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _image = null;
-                      });
-                    },
-                    icon: const Icon(Icons.delete),
-                    label: const Text('画像を削除'),
-                  ),
-                ],
+              ElevatedButton.icon(
+                onPressed: _takePicture,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('カメラで撮影'),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -186,65 +147,6 @@ class _PostScreenState extends State<PostScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// カメラ画面
-class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key, required this.camera});
-
-  final CameraDescription camera;
-
-  @override
-  CameraScreenState createState() => CameraScreenState();
-}
-
-class CameraScreenState extends State<CameraScreen> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = CameraController(
-      widget.camera,
-      ResolutionPreset.medium,
-    );
-    _initializeControllerFuture = _controller.initialize();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return CameraPreview(_controller);
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          try {
-            final image = await _controller.takePicture();
-            // ignore: use_build_context_synchronously
-            Navigator.pop(context, File(image.path));
-          } catch (e) {
-            print("Error capturing image: $e");
-          }
-        },
-        child: const Icon(Icons.camera),
       ),
     );
   }

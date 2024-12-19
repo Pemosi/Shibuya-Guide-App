@@ -95,6 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onMapCreated: (GoogleMapController controller) {
                 _mapController = controller; // マップコントローラーを初期化
               },
+              markers: {
+                const Marker(
+                  markerId: MarkerId('Sydney'),
+                )
+              },
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
             ),
