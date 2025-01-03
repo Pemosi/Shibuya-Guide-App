@@ -65,5 +65,16 @@
 	<!-- Microphone usage key -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>ビデオ撮影の際に音声を録音するため、マイクへのアクセスを許可してください。</string>
+
+	<!-- Google Sign-In configuration -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.925538521892-7cat4aa10aop8rhm7cd8ag3e2tg02he6</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

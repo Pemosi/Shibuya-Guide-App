@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shibuya_app/screens/home.dart';
 import 'package:shibuya_app/screens/take_picture_screen.dart';
 import 'package:shibuya_app/service/location_service.dart';
 import 'package:shibuya_app/service/storage_service.dart';
@@ -49,31 +50,38 @@ class _PostScreenState extends State<PostScreen> {
 
   Future<void> _savePost() async {
     if (_formKey.currentState!.validate() && _currentPosition != null) {
-      String? imageUrl;
+      try {
+        String? imageUrl;
 
-      if (_image != null) {
-        imageUrl = await StorageService.uploadImage(_image!);
+        if (_image != null) {
+          imageUrl = await StorageService.uploadImage(_image!);
+        }
+
+        await FirebaseFirestore.instance.collection('posts').add({
+          'title': _titleController.text,
+          'description': _descriptionController.text,
+          'imageUrl': imageUrl,
+          'latitude': _currentPosition!.latitude,
+          'longitude': _currentPosition!.longitude,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('投稿が成功しました！')),
+        );
+
+        _titleController.clear();
+        _descriptionController.clear();
+        setState(() {
+          _image = null;
+        });
+      } catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('投稿に失敗しました: $e')),
+        );
       }
-
-      await FirebaseFirestore.instance.collection('posts').add({
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'imageUrl': imageUrl,
-        'latitude': _currentPosition!.latitude,
-        'longitude': _currentPosition!.longitude,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('投稿が成功しました！')),
-      );
-
-      _titleController.clear();
-      _descriptionController.clear();
-      setState(() {
-        _image = null;
-      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('場所情報または画像が正しく入力されていません')),
@@ -143,6 +151,27 @@ class _PostScreenState extends State<PostScreen> {
               ElevatedButton(
                 onPressed: _savePost,
                 child: const Text('投稿する'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  if (_currentPosition != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HomeScreen(
+                          destinationLatitude: _currentPosition!.latitude,
+                          destinationLongitude: _currentPosition!.longitude,
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('現在地が取得されていません')),
+                    );
+                  }
+                },
+                child: const Text('この場所にいく'),
               ),
             ],
           ),
