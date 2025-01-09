@@ -160,8 +160,8 @@ class _PostScreenState extends State<PostScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => HomeScreen(
-                          destinationLatitude: _currentPosition!.latitude,
-                          destinationLongitude: _currentPosition!.longitude,
+                          // destinationLatitude: _currentPosition!.latitude,
+                          // destinationLongitude: _currentPosition!.longitude,
                         ),
                       ),
                     );

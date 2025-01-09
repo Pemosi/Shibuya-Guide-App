@@ -1,267 +1,319 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_place/google_place.dart';
-import 'package:shibuya_app/env/env.dart';
+import 'package:google_maps_webservice/places.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shibuya_app/models/place_repository.dart';
+import 'package:shibuya_app/models/spots.dart';
 
 class HomeScreen extends StatefulWidget {
-  final double? destinationLatitude; // 目的地の緯度
-  final double? destinationLongitude; // 目的地の経度
-
-  const HomeScreen({
-    super.key,
-    this.destinationLatitude,
-    this.destinationLongitude,
-  });
+  const HomeScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  GoogleMapController? _mapController;
-  Position? _currentPosition;
-  final double _currentZoom = 14.0;
-  GooglePlace? googlePlace;
-  List<AutocompletePrediction> predictions = [];
+  final _initialPosition = LatLng(35.6586, 139.7454);
+  GoogleMapController? mapController;
+
+  Spot? selectedSpot;
+  String? selectedPhotoUrl;
+  List<Map<String, dynamic>> searchedValue = [];
+  Set<Marker> markers = {};
+
+  final PlaceRepository placeRepository = PlaceRepository();
+
+  // 取得結果をクリアする
+  void _resetResult() {
+    setState(() {
+      selectedSpot = null;
+      selectedPhotoUrl = null;
+      searchedValue = [];
+      markers = {};
+    });
+  }
+
+  // 現在位置を取得するメソッド
+  void _getCurrentLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      await Geolocator.requestPermission();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
-    googlePlace = GooglePlace(Env.key); // 環境変数からAPIキーを取得
+    _getCurrentLocation(); // 現在地取得
   }
 
-  /// 現在地を取得
-  Future<void> _getCurrentLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('位置情報サービスが無効です。');
-      }
+  // 入力文字列による検索結果をGoogleMapApiから取得する
+  void _searchPossiblePlacesList(String string) async {
+    print("検索文字列: $string");
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('位置情報のアクセス許可が拒否されました。');
-        }
-      }
+    List<Map<String, dynamic>> result = [];
+    PlacesAutocompleteResponse placesAutocompleteResponse =
+        await placeRepository.getAutocomplete(string);
 
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('位置情報のアクセス許可が永久に拒否されています。');
-      }
+    // placesAutocompleteResponse の内容を確認する
+    print("PlacesAutocompleteResponse: ${placesAutocompleteResponse.toJson()}");
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+    // 予測候補が存在する場合のみ処理を行う
+    if (placesAutocompleteResponse.predictions.isNotEmpty) {
+      print("予測候補: ${placesAutocompleteResponse.predictions}");
+
+      for (var prediction in placesAutocompleteResponse.predictions) {
+        result.add({"placeId": prediction.placeId, "description": prediction.description});
+        print("placeId？に入ってくる値$result");
+      }
 
       setState(() {
-        _currentPosition = position;
+        searchedValue = result;
       });
+    } else {
+      print("予測候補が見つかりませんでした");
+    }
+  }
 
-      if (_mapController != null) {
-        _mapController!.animateCamera(
+  // リストをタップされたら、placeIdから詳細情報を取ってくる
+  void _onTapList(int index) async {
+    final placeId = searchedValue[index]["placeId"];
+    // 上記で取得した情報から詳細情報（緯度経度など）を取得
+    PlacesDetailsResponse placesDetailsResponse =
+        await placeRepository.getPlaceDetails(placeId);
+
+    String name = placesDetailsResponse.result.name;
+    String address = placesDetailsResponse.result.formattedAddress!;
+    Location location = placesDetailsResponse.result.geometry!.location;
+
+    // googleMap上にMarkerを設置するように、値を更新する
+    setState(() {
+      markers.add(
+        Marker(
+          markerId: MarkerId(placeId),
+          icon: BitmapDescriptor.defaultMarkerWithHue(350),
+          position: LatLng(location.lat, location.lng),
+          infoWindow: InfoWindow(
+            title: name,
+            snippet: address,
+          ),
+        ),
+      );
+
+      selectedSpot = Spot(
+        placeId: placeId,
+        name: name,
+        address: address,
+        location: GeoPoint(location.lat, location.lng),
+        comment: "",
+      );
+
+      if (placesDetailsResponse.result.photos.isNotEmpty) {
+        selectedPhotoUrl = placeRepository.buildPhotoUrl(
+          photoReference: placesDetailsResponse.result.photos[0].photoReference,
+          maxHeight: 300,
+        );
+      } else {
+        selectedPhotoUrl = null;
+      }
+    });
+
+    // mapの中心を、選択したスポットの位置にする。
+    await mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(location.lat, location.lng),
+          zoom: 16,
+        ),
+      ),
+    );
+
+    // markerの上のwindowを開く
+    if (markers.isNotEmpty) {
+      await Future.delayed(Duration(milliseconds: 200));  // 少し遅延を入れてから
+      await mapController!.showMarkerInfoWindow(MarkerId(placeId));
+    }
+  }
+
+  // 検索欄
+  Widget _buildInput() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      height: 40,
+      child: TextFormField(
+        autofocus: true,
+        style: TextStyle(fontSize: 13.5),
+        decoration: InputDecoration(
+          prefixIcon: Icon(Icons.search),
+          hintText: '場所名/住所で検索',
+        ),
+        textInputAction: TextInputAction.search,
+        onFieldSubmitted: (value) {
+          // 検索ボタンを押したら検索を実行する
+          _searchPossiblePlacesList(value);
+        },
+        onChanged: (inputString) {
+          // 一度検索したのちに再度文字列を変更したら、一旦情報をリセットする
+          if (inputString.isEmpty) {
+            _resetResult();  // 入力が空になった場合にリセット
+          }
+        },
+      ),
+    );
+  }
+
+  // 検索結果の一覧
+  Widget _resultList() {
+    return searchedValue.isEmpty
+        ? Container()
+        : Container(
+            height: 150,
+            padding: EdgeInsets.fromLTRB(5, 0, 5, 5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: searchedValue.length,
+              itemBuilder: (BuildContext context, int index) {
+                return GestureDetector(
+                  onTap: () {
+                    _onTapList(index);
+                  },
+                  child: Card(
+                    // 選択しているものとそうでないもので背景色を変える
+                    color: selectedSpot != null
+                        ? searchedValue[index]["placeId"] == selectedSpot!.placeId
+                            ? Colors.white
+                            : Colors.grey[200]
+                        : Colors.grey[200],
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 1, 20, 1),
+                      child: Text(searchedValue[index]["description"]),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+  }
+
+  // 地図
+  Widget _buildMap() {
+    return GoogleMap(
+      myLocationButtonEnabled: false,
+      myLocationEnabled: true,
+      initialCameraPosition: CameraPosition(
+        target: _initialPosition,
+        zoom: 10,
+      ),
+      markers: markers,
+      onMapCreated: (tempMapController) {
+        mapController = tempMapController;
+        if (markers.isNotEmpty) {
+          setState(() {});  // マーカーがあれば更新する
+        }
+      },
+    );
+  }
+
+  //　現在地ボタン処理
+  Widget _goToCurrentPositionButon() {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(55, 55),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        shape: const CircleBorder(),
+      ),
+      onPressed: () async {
+        Position currentPosition = await Geolocator.getCurrentPosition(
+          // ignore: deprecated_member_use
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
             CameraPosition(
-              target: LatLng(position.latitude, position.longitude),
-              zoom: _currentZoom,
+              target:LatLng(
+                currentPosition.latitude,
+                currentPosition.longitude
+              ),
+              zoom: 14,
             ),
           ),
         );
-      }
-    } catch (e) {
-      print("Error getting location: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("現在地を取得できませんでした")),
-      );
-    }
+      },
+      child: const Icon(Icons.near_me_outlined),
+    );
   }
 
-  /// 検索処理
-  void autoCompleteSearch(String value) async {
-    final result = await googlePlace?.autocomplete.get(value);
-    if (result != null && result.predictions != null && mounted) {
-      setState(() {
-        predictions = result.predictions!;
-      });
+  Widget _buildSpotImage() {
+    if (selectedPhotoUrl == null) {
+      return Container();
     }
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(2)),
+      child: Image.network(selectedPhotoUrl!, fit: BoxFit.cover),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('現在地マップ'),
+        title: Text('場所検索'),
       ),
       body: Stack(
         children: [
-          _currentPosition == null
-              ? const Center(child: CircularProgressIndicator())
-              : GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: LatLng(
-                      _currentPosition!.latitude,
-                      _currentPosition!.longitude,
-                    ),
-                    zoom: _currentZoom,
-                  ),
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
-                  },
-                  markers: _createMarkers(),
-                  polylines: _createPolylines(),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                ),
+          _buildMap(),
           Positioned(
-            bottom: 20,
-            right: 20,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  heroTag: "btn1",
-                  onPressed: _getCurrentLocation,
-                  child: const Icon(Icons.my_location),
-                ),
-                const SizedBox(height: 16),
-                FloatingActionButton(
-                  heroTag: "btn2",
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) {
-                        return SafeArea(
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(10.0),
-                                child: TextField(
-                                  onChanged: (value) {
-                                    if (value.isNotEmpty) {
-                                      autoCompleteSearch(value);
-                                    } else {
-                                      setState(() {
-                                        predictions = [];
-                                      });
-                                    }
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: '場所を検索',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: ListView.builder(
-                                  itemCount: predictions.length,
-                                  itemBuilder: (context, index) {
-                                    return ListTile(
-                                      title: Text(
-                                        predictions[index].description ?? '',
-                                      ),
-                                      onTap: () async {
-                                        final placeId = predictions[index].placeId;
-                                        if (placeId != null) {
-                                          final details = await googlePlace?.details.get(placeId);
-                                          if (details != null && details.result != null) {
-                                            final location = details.result!.geometry!.location;
-                                            if (location != null) {
-                                              setState(() {
-                                                _mapController?.animateCamera(
-                                                  CameraUpdate.newLatLng(
-                                                    LatLng(location.lat, location.lng),
-                                                  ),
-                                                );
-                                                predictions = [];
-                                              });
-                                              Navigator.pop(context);
-                                            }
-                                          }
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                  child: const Icon(Icons.search),
-                ),
-              ],
+            right: 10,
+            bottom: 70,
+            child: _goToCurrentPositionButon(),
+          ),
+          SafeArea(
+            child: Container(
+              margin: EdgeInsets.fromLTRB(10, 0, 10, 0),
+              child: Stack(
+                children: <Widget>[
+                  // 画像だけ下に配置する
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _buildSpotImage(),
+                  ),
+                  // 検索フォームと結果は上側に順番に表示する
+                  Column(
+                    children: [
+                      _buildInput(),
+                      _resultList(),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: selectedSpot == null
+          ? Container()
+          : FloatingActionButton.extended(
+              onPressed: () {
+                // 登録機能などを追加する場合はここに処理を書く
+              },
+              label: Row(
+                children: [
+                  Icon(Icons.create_outlined),
+                  Text("登録する"),
+                ],
+              ),
+            ),
     );
-  }
-
-  /// 現在地と目的地のマーカーを作成
-  Set<Marker> _createMarkers() {
-    final markers = <Marker>{};
-
-    if (_currentPosition != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('currentLocation'),
-          position: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
-          infoWindow: const InfoWindow(title: '現在地'),
-        ),
-      );
-    }
-
-    if (widget.destinationLatitude != null &&
-        widget.destinationLongitude != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('destination'),
-          position: LatLng(
-            widget.destinationLatitude!,
-            widget.destinationLongitude!,
-          ),
-          infoWindow: const InfoWindow(title: '目的地'),
-        ),
-      );
-    }
-
-    return markers;
-  }
-
-  /// 現在地から目的地へのポリラインを作成
-  Set<Polyline> _createPolylines() {
-    if (_currentPosition == null ||
-        widget.destinationLatitude == null ||
-        widget.destinationLongitude == null) {
-      return {};
-    }
-
-    return {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: [
-          LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
-          LatLng(
-            widget.destinationLatitude!,
-            widget.destinationLongitude!,
-          ),
-        ],
-        color: Colors.blue,
-        width: 5,
-      ),
-    };
   }
 }

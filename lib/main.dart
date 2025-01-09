@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shibuya_app/env/env.dart';
 import 'package:shibuya_app/firebase_options.dart';
-import 'package:shibuya_app/routes.dart';
+import 'package:shibuya_app/screens/sign_in.dart';
 
 
 Future<void> main() async {
@@ -16,15 +16,16 @@ Future<void> main() async {
   // final firstCamera = cameras.first;
   const platform = MethodChannel('com.example.shibuyaapp/api');
   platform.invokeMethod('setApiKey', Env.key);
-  // runApp(MyApp(camera: firstCamera)); カメラ機能を確認するときにこのコメントアウト等を消してください
+  // runApp(MyApp(camera: firstCamera))
+  //; カメラ機能を確認するときにこのコメントアウト等を消してください
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({
-    Key? key,
+    super.key,
     //required this.camera,
-  }) : super(key: key);
+  });
 
   // final CameraDescription? camera;
 
@@ -35,7 +36,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const RoutePage(),
+      home: const SignInPage(),
     );
   }
 }
