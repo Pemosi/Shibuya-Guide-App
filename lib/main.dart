@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shibuya_app/env/env.dart';
 import 'package:shibuya_app/firebase_options.dart';
-import 'package:shibuya_app/screens/sign_in.dart';
+import 'package:shibuya_app/screens/login_page.dart';
 
 
 Future<void> main() async {
@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const SignInPage(),
+      home: LoginPage(onTap: () {}),
     );
   }
 }
