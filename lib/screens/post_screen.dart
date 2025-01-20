@@ -1,11 +1,12 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shibuya_app/screens/home.dart';
 import 'package:shibuya_app/screens/take_picture_screen.dart';
 import 'package:shibuya_app/service/location_service.dart';
 import 'package:shibuya_app/service/storage_service.dart';
+import 'package:shibuya_app/service/user_service.dart';
 
 class PostScreen extends StatefulWidget {
   const PostScreen({super.key});
@@ -57,6 +58,11 @@ class _PostScreenState extends State<PostScreen> {
           imageUrl = await StorageService.uploadImage(_image!);
         }
 
+        // UserService を使用してユーザー名を取得
+        final userName = await UserService().getUserName() ?? 'Unknown User';
+        final userId = FirebaseAuth.instance.currentUser!.uid;
+
+        // 投稿データを Firestore に保存
         await FirebaseFirestore.instance.collection('posts').add({
           'title': _titleController.text,
           'description': _descriptionController.text,
@@ -64,19 +70,26 @@ class _PostScreenState extends State<PostScreen> {
           'latitude': _currentPosition!.latitude,
           'longitude': _currentPosition!.longitude,
           'createdAt': FieldValue.serverTimestamp(),
+          'userName': userName, // ユーザー名を保存
+          'userId': userId, // ユーザーIDも保存
+          'likedBy': [],
+          'likeCount': 0,
         });
 
+        // 成功メッセージを表示
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('投稿が成功しました！')),
         );
 
+        // 入力フィールドと選択した画像をリセット
         _titleController.clear();
         _descriptionController.clear();
         setState(() {
           _image = null;
         });
       } catch (e) {
+        // エラーメッセージを表示
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('投稿に失敗しました: $e')),
@@ -94,6 +107,7 @@ class _PostScreenState extends State<PostScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('投稿'),
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -134,6 +148,7 @@ class _PostScreenState extends State<PostScreen> {
               _image != null
                   ? Image.file(
                       _image!,
+                      width: 200,
                       height: 200,
                       fit: BoxFit.cover,
                     )
@@ -151,27 +166,6 @@ class _PostScreenState extends State<PostScreen> {
               ElevatedButton(
                 onPressed: _savePost,
                 child: const Text('投稿する'),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_currentPosition != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => HomeScreen(
-                          // destinationLatitude: _currentPosition!.latitude,
-                          // destinationLongitude: _currentPosition!.longitude,
-                        ),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('現在地が取得されていません')),
-                    );
-                  }
-                },
-                child: const Text('この場所にいく'),
               ),
             ],
           ),
