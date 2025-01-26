@@ -2,16 +2,20 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class StorageService {
-  static Future<String?> uploadImage(File image) async {
+  static Future<String> uploadImage(File image) async {
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('posts/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await storageRef.putFile(image);
-      return await storageRef.getDownloadURL();
+      final storageRef = FirebaseStorage.instance.ref();
+      final imagesRef = storageRef.child('images/${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+      final uploadTask = imagesRef.putFile(image);
+      final snapshot = await uploadTask;
+
+      // URL を取得
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
     } catch (e) {
-      print("Error uploading image: $e");
-      return null;
+      print('画像のアップロードに失敗しました: $e');
+      throw Exception('画像のアップロードに失敗しました');
     }
   }
 }

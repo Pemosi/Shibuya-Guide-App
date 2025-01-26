@@ -50,7 +50,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         automaticallyImplyLeading: false,
         title: const Text(
           'マイページ',
-          style: TextStyle(fontSize: 24),
+          style: TextStyle(fontSize: 24, color: Colors.white),
         ),
         backgroundColor: Colors.blue,
       ),

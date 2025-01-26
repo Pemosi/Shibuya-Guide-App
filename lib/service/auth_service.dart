@@ -6,33 +6,36 @@ import 'package:shibuya_app/routes.dart';
 class AuthService {
   // Google sign in
   Future<User?> signInWithGoogle(BuildContext context) async {
-    // begin interactive sign in process
-    final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
+    try {
+      final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
+      if (gUser == null) {
+        return null;
+      }
 
-    // obtain auth details from request
-    final GoogleSignInAuthentication gAuth = await gUser!.authentication;
+      final GoogleSignInAuthentication gAuth = await gUser.authentication;
 
-    // create new credentials for user
-    final credential = GoogleAuthProvider.credential(
-      accessToken: gAuth.accessToken,
-      idToken: gAuth.idToken,
-    );
-
-    // sign in!
-    final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-
-    // Check if user is successfully signed in
-    if (userCredential.user != null) {
-      // ignore: use_build_context_synchronously
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) {
-            return RoutePage();
-          },
-        ),
+      final credential = GoogleAuthProvider.credential(
+        accessToken: gAuth.accessToken,
+        idToken: gAuth.idToken,
       );
-    }
 
-    return userCredential.user;
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        // ignore: use_build_context_synchronously
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return RoutePage();
+            },
+          ),
+        );
+      }
+
+      return userCredential.user;
+    } catch (e) {
+      debugPrint('Error during Google sign-in: $e');
+      return null;
+    }
   }
 }

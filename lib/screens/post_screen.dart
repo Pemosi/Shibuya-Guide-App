@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shibuya_app/screens/take_picture_screen.dart';
 import 'package:shibuya_app/service/location_service.dart';
 import 'package:shibuya_app/service/storage_service.dart';
@@ -45,6 +46,17 @@ class _PostScreenState extends State<PostScreen> {
     if (result != null) {
       setState(() {
         _image = result;
+      });
+    }
+  }
+
+  Future<void> _selectFromGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
       });
     }
   }
@@ -146,21 +158,27 @@ class _PostScreenState extends State<PostScreen> {
               ),
               const SizedBox(height: 16),
               _image != null
-                  ? Image.file(
-                      _image!,
-                      width: 200,
-                      height: 200,
-                      fit: BoxFit.cover,
-                    )
-                  : const Text(
-                      '写真が選択されていません',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                ? Image.file(
+                    _image!,
+                    width: double.infinity,
+                    height: 300,
+                    fit: BoxFit.contain,
+                  )
+                : const Text(
+                    '写真が選択されていません',
+                    style: TextStyle(color: Colors.grey),
+                  ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _takePicture,
                 icon: const Icon(Icons.camera_alt),
                 label: const Text('カメラで撮影'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _selectFromGallery,
+                icon: const Icon(Icons.photo_library),
+                label: const Text('ギャラリーから選択'),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
