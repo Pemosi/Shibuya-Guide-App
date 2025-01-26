@@ -158,16 +158,16 @@ class _PostScreenState extends State<PostScreen> {
               ),
               const SizedBox(height: 16),
               _image != null
-                  ? Image.file(
-                      _image!,
-                      width: 200,
-                      height: 200,
-                      fit: BoxFit.cover,
-                    )
-                  : const Text(
-                      '写真が選択されていません',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                ? Image.file(
+                    _image!,
+                    width: double.infinity,
+                    height: 300,
+                    fit: BoxFit.contain,
+                  )
+                : const Text(
+                    '写真が選択されていません',
+                    style: TextStyle(color: Colors.grey),
+                  ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _takePicture,

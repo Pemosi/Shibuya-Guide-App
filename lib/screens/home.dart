@@ -20,7 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _initialPosition = LatLng(35.6586, 139.7454);
   GoogleMapController? mapController;
-
+  final TextEditingController _searchController = TextEditingController();
   Spot? selectedSpot;
   String? selectedPhotoUrl;
   List<Map<String, dynamic>> searchedValue = [];
@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final PlaceRepository placeRepository = PlaceRepository();
 
-  // 取得結果をクリアする
+  // 検索結果をクリアするメソッド
   void _resetResult() {
     setState(() {
       selectedSpot = null;
@@ -38,10 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
       markers = {};
       polylines.clear();
     });
-    // モーダルが表示されている場合は閉じる
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
   }
 
   // 現在位置を取得するメソッド
@@ -298,22 +294,29 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       height: 40,
       child: TextFormField(
+        controller: _searchController,
         autofocus: true,
-        style: TextStyle(fontSize: 13.5),
+        style: const TextStyle(fontSize: 13.5),
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search),
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () {
+              _searchController.clear(); // 検索バーをクリア
+              _resetResult(); // 検索結果をリセット
+            },
+          ),
           hintText: '検索',
         ),
         textInputAction: TextInputAction.search,
         onFieldSubmitted: (value) {
-          // 検索ボタンを押したら検索を実行する
-          _searchPossiblePlacesList(value);
+          _searchPossiblePlacesList(value); // 検索を実行
         },
         onChanged: (inputString) {
           if (inputString.isEmpty) {
-            _resetResult();  // 入力が空になった場合にリセット
+            _resetResult(); // 入力が空の場合のみリセット
           }
-        }
+        },
       ),
     );
   }
@@ -416,7 +419,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   Column(
                     children: [
                       _buildInput(),
-                      // _resultList(),
                       if (searchedValue.isNotEmpty) _buildSuggestionList(),
                     ],
                   ),
