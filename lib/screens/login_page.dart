@@ -83,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
                 //welcome back you been missed
 
                 Text(
-                  'Welcome back you\'ve been missed',
+                  'Welcome back!',
                   style: TextStyle(
                     color: Colors.grey[700],
                     fontSize: 15,
@@ -94,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
                 //username
                 MyTextField(
                   controller: emailController,
-                  hintText: 'Username or email',
+                  hintText: 'メールアドレス',
                   obscureText: false,
                 ),
 
@@ -102,7 +102,7 @@ class _LoginPageState extends State<LoginPage> {
                 //password
                 MyTextField(
                   controller: passwordController,
-                  hintText: 'Password',
+                  hintText: 'パスワード',
                   obscureText: true,
                 ),
                 const SizedBox(height: 15),
@@ -110,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                 //sign in button
                 MyButton(
                   onTap: signUserIn,
-                  text: 'Sign In',
+                  text: 'サインイン',
                 ),
                 const SizedBox(height: 20),
 
@@ -122,12 +122,12 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Forgot your login details? ',
+                        'ログイン情報をお忘れですか？',
                         style: TextStyle(
                             color: Colors.grey.shade600, fontSize: 12),
                       ),
                       Text(
-                        'Get help logging in.',
+                        'ヘルプ',
                         style: TextStyle(
                           color: Colors.blue.shade900,
                           fontSize: 15,
@@ -202,13 +202,13 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Not a member? ',
+                      'まだ登録してませんか？',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     GestureDetector(
                       onTap: widget.onTap,
                       child: Text(
-                        'Register now',
+                        '今すぐ登録',
                         style: TextStyle(
                             color: Colors.blue[900],
                             fontWeight: FontWeight.bold,

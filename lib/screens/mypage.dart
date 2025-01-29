@@ -1,7 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shibuya_app/models/spots.dart';
+import 'package:shibuya_app/screens/favorite.dart';
 import 'package:shibuya_app/screens/login_page.dart';
 import 'package:shibuya_app/service/user_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -45,6 +48,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -126,7 +131,29 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 child: ListView(
                   children: [
                     _buildListTile('お知らせ', Icons.notifications, 3),
-                    _buildListTile('お気に入り', Icons.star, 0),
+                    _buildListTile(
+                      'お気に入り', Icons.star, 0,
+                      onTap: () {
+                        if (currentUser != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FavoritesScreen(
+                                userId: currentUser.uid,
+                                onSelectSpot: (spot) {
+                                  // Google Maps で開く処理
+                                  launchGoogleMaps(spot);
+                                },
+                              ),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("ログインが必要です。"))
+                          );
+                        }
+                      },
+                    ),
                     _buildListTile('いいね！履歴', Icons.thumb_up, 0),
                     _buildListTile('安心・安全ガイド', Icons.security, 0),
                     _buildListTile('ヘルプ', Icons.help, 0),
@@ -179,5 +206,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
+  }
+
+  void launchGoogleMaps(Spot spot) {
+    final url = 'https://www.google.com/maps/search/?api=1&query=${spot.location.latitude},${spot.location.longitude}';
+    launchUrl(Uri.parse(url));
   }
 }

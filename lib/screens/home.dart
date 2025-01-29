@@ -3,7 +3,6 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/places.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shibuya_app/env/env.dart';
 import 'package:shibuya_app/models/place_repository.dart';
 import 'package:shibuya_app/models/spots.dart';
@@ -11,7 +10,8 @@ import 'package:exif/exif.dart';
 import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final File? photo;
+  const HomeScreen({super.key, this.photo});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -52,6 +52,43 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation(); // 現在地取得
+    if (widget.photo != null) {
+      _displayRouteFromPhoto(widget.photo!);
+    }
+  }
+
+  Future<void> _displayRouteFromPhoto(File photo) async {
+    final LatLng? destination = await _getLatLngFromPhoto(photo);
+
+    if (destination == null) {
+      showDialog(
+        // ignore: use_build_context_synchronously
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("位置情報が見つかりません"),
+          content: const Text("この写真には位置情報が含まれていません。"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    Position currentPosition = await Geolocator.getCurrentPosition(
+      // ignore: deprecated_member_use
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    LatLng currentLatLng = LatLng(currentPosition.latitude, currentPosition.longitude);
+
+    markers.clear();
+    markers.add(Marker(markerId: const MarkerId('current'), position: currentLatLng));
+    markers.add(Marker(markerId: const MarkerId('destination'), position: destination));
+
+    await _drawRoute(currentLatLng, destination);
   }
 
   Future<void> displayRouteFromPhoto(File photo) async {
@@ -113,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _drawRoute(LatLng origin, LatLng destination) async {
     try {
-      // Directions API を呼び出してルートを取得
       PolylinePoints polylinePoints = PolylinePoints();
       PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
         Env.key,
@@ -122,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (result.points.isNotEmpty) {
-        // ポリラインのポイントを作成
         List<LatLng> polylineCoordinates = result.points
             .map((point) => LatLng(point.latitude, point.longitude))
             .toList();
@@ -139,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         });
 
-        // カメラを両地点が見える範囲に調整
         LatLngBounds bounds;
         if (origin.latitude > destination.latitude) {
           bounds = LatLngBounds(
@@ -221,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
         placeId: placeId,
         name: name,
         address: address,
-        location: GeoPoint(location.lat, location.lng),
+        location: LatLng(location.lat, location.lng),
         comment: "",
       );
 
@@ -274,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 登録処理をここに追加
                   },
                   icon: Icon(Icons.add),
-                  label: Text('登録する'),
+                  label: Text('お気に入り登録する'),
                 ),
               ],
             ),
@@ -289,32 +323,51 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildInput() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white, // 背景色を白に設定
+        borderRadius: BorderRadius.circular(20), // 外枠を角丸に設定
       ),
       height: 40,
       child: TextFormField(
-        controller: _searchController,
-        autofocus: true,
-        style: const TextStyle(fontSize: 13.5),
+        controller: _searchController, // 入力内容を管理するコントローラー
+        autofocus: true, // 自動的にフォーカス
+        style: const TextStyle(fontSize: 13.5), // フォントサイズ設定
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear(); // 検索バーをクリア
-              _resetResult(); // 検索結果をリセット
-            },
+          prefixIcon: const Icon(Icons.search), // 左端のアイコン
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.clear), // クリアボタン
+                onPressed: () {
+                  _searchController.clear(); // 入力をクリア
+                  _resetResult(); // 検索結果をリセット
+                },
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.sort, // ソートボタン
+                  size: 20,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+                onPressed: () {
+                  //ソート選択のダイアログなどを実装
+                },
+              ),
+            ],
           ),
-          hintText: '検索',
+          hintText: '検索', // 初期ヒントテキスト
+          hintStyle: Theme.of(context).textTheme.bodyMedium, // ヒントテキストのスタイル
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(128), // 入力フィールドの角丸設定
+          ),
         ),
-        textInputAction: TextInputAction.search,
+        textInputAction: TextInputAction.search, // キーボードアクションを「検索」に設定
         onFieldSubmitted: (value) {
-          _searchPossiblePlacesList(value); // 検索を実行
+          _searchPossiblePlacesList(value); // 検索実行
         },
         onChanged: (inputString) {
           if (inputString.isEmpty) {
-            _resetResult(); // 入力が空の場合のみリセット
+            _resetResult(); // 入力が空の場合リセット
           }
         },
       ),

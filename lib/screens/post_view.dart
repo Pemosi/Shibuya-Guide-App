@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shibuya_app/screens/home.dart';
 
 class PostViewPage extends StatelessWidget {
   final Function(File photo) onWantToGoPressed;
 
   const PostViewPage({super.key, required this.onWantToGoPressed});
-
 
   Future<void> _toggleLike(String postId, String currentUserId) async {
     final postRef = FirebaseFirestore.instance.collection('posts').doc(postId);
@@ -24,7 +24,6 @@ class PostViewPage extends StatelessWidget {
     final postLikes = List<String>.from(postSnapshot['likedBy'] ?? []);
 
     if (postLikes.contains(currentUserId)) {
-      // いいねを取り消す
       await postRef.update({
         'likedBy': FieldValue.arrayRemove([currentUserId]),
         'likeCount': FieldValue.increment(-1),
@@ -33,7 +32,6 @@ class PostViewPage extends StatelessWidget {
         'likedPosts': FieldValue.arrayRemove([postId]),
       });
     } else {
-      // いいねを追加
       await postRef.update({
         'likedBy': FieldValue.arrayUnion([currentUserId]),
         'likeCount': FieldValue.increment(1),
@@ -44,10 +42,11 @@ class PostViewPage extends StatelessWidget {
     }
   }
 
+  Future<void> _deletePost(String postId) async {
+    await FirebaseFirestore.instance.collection('posts').doc(postId).delete();
+  }
+
   Future<void> _refreshPosts() async {
-    // Firebaseのデータはリアルタイムストリームで自動的に更新されるので、
-    // 実際には特に操作は不要。
-    // ただし、デモ目的で少し遅延を追加する。
     await Future.delayed(const Duration(seconds: 1));
   }
 
@@ -87,97 +86,138 @@ class PostViewPage extends StatelessWidget {
 
                 return Card(
                   margin: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      // タイトルと詳細情報
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post['title'],
-                              style: const TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  post['title'],
+                                  style: const TextStyle(
+                                    fontSize: 18.0,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4.0),
+                                Text(
+                                  '${post['userName']} - ${post['description']}',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4.0),
-                            Text(
-                              '${post['userName']} - ${post['description']}',
-                              style: const TextStyle(color: Colors.grey),
+                          ),
+                          if (post['imageUrl'] != null)
+                            Image.network(
+                              post['imageUrl'],
+                              width: double.infinity,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            )
+                          else
+                            const SizedBox(
+                              width: double.infinity,
+                              height: 200,
+                              child: Icon(Icons.image_not_supported, size: 50),
                             ),
-                          ],
-                        ),
-                      ),
-                      // 投稿画像
-                      if (post['imageUrl'] != null)
-                        Image.network(
-                          post['imageUrl'],
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        )
-                      else
-                        const SizedBox(
-                          width: double.infinity,
-                          height: 200,
-                          child: Icon(Icons.image_not_supported, size: 50),
-                        ),
-                      // ボタンセクション
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 16.0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            // いいねボタン
-                            TextButton.icon(
-                              onPressed: () => _toggleLike(postId, currentUserId),
-                              icon: Icon(
-                                Icons.thumb_up,
-                                color: likedBy.contains(currentUserId)
-                                    ? Colors.blue
-                                    : Colors.grey,
-                              ),
-                              label: Text('いいね ($likeCount)'),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8.0,
+                              horizontal: 16.0,
                             ),
-                            // 行ってみたいボタン
-                            TextButton.icon(
-                              onPressed: () async {
-                                if (post['imageUrl'] != null) {
-                                  // 画像URLをダウンロードして一時ファイルとして保存
-                                  final imageUrl = post['imageUrl'];
-                                  final response = await HttpClient().getUrl(Uri.parse(imageUrl));
-                                  final bytes = await consolidateHttpClientResponseBytes(await response.close());
-                                  final tempFile = File('${(await getTemporaryDirectory()).path}/temp_image.jpg');
-                                  await tempFile.writeAsBytes(bytes);
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: () => _toggleLike(postId, currentUserId),
+                                  icon: Icon(
+                                    Icons.thumb_up,
+                                    color: likedBy.contains(currentUserId)
+                                        ? Colors.blue
+                                        : Colors.grey,
+                                  ),
+                                  label: Text('いいね ($likeCount)'),
+                                ),
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    if (post['imageUrl'] != null) {
+                                      final imageUrl = post['imageUrl'];
+                                      final response = await HttpClient().getUrl(Uri.parse(imageUrl));
+                                      final bytes = await consolidateHttpClientResponseBytes(await response.close());
+                                      final tempFile = File('${(await getTemporaryDirectory()).path}/temp_image.jpg');
+                                      await tempFile.writeAsBytes(bytes);
 
-                                  onWantToGoPressed(tempFile);
-                                } else {
-                                  // 画像がない場合のエラーメッセージ
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text("画像がありません"),
-                                      content: const Text("位置情報を取得するには画像が必要です。"),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          child: const Text("OK"),
+                                      onWantToGoPressed(tempFile);
+                                      Navigator.push(
+                                        // ignore: use_build_context_synchronously
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => HomeScreen(photo: tempFile),
                                         ),
-                                      ],
+                                      );
+                                    } else {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text("画像がありません"),
+                                          content: const Text("位置情報を取得するには画像が必要です。"),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text("OK"),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  icon: Icon(Icons.location_on, color: Colors.green),
+                                  label: Text("行ってみたい"),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Positioned(
+                        top: 8.0,
+                        right: 8.0,
+                        child: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'delete') {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('確認'),
+                                  content: const Text('この投稿を削除しますか？'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('キャンセル'),
                                     ),
-                                  );
-                                }
-                              },
-                              icon: Icon(Icons.location_on, color: Colors.green),
-                              label: Text("行ってみたい"),
+                                    TextButton(
+                                      onPressed: () async {
+                                        Navigator.pop(context);
+                                        await _deletePost(postId);
+                                      },
+                                      child: const Text('削除'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('削除'),
                             ),
                           ],
+                          icon: const Icon(Icons.more_vert),
                         ),
                       ),
                     ],
