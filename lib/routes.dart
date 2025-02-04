@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:shibuya_app/screens/home.dart';
-import 'package:shibuya_app/screens/mypage.dart';
-import 'package:shibuya_app/screens/post_screen.dart';
-import 'package:shibuya_app/screens/post_view.dart';
+import 'package:shibuya_app/src/screens/events/calendar_screen.dart';
+import 'package:shibuya_app/src/screens/home.dart';
+import 'package:shibuya_app/src/screens/mayPage/mypage.dart';
+import 'package:shibuya_app/src/screens/post_view.dart';
 
 class RoutePage extends StatefulWidget {
   const RoutePage({super.key});
@@ -19,7 +19,7 @@ class _RoutePageState extends State<RoutePage> {
   final List<Widget> _screens = [
     PostViewPage(onWantToGoPressed: (File photo) { },),
     const HomeScreen(),
-    const PostScreen(),
+    const MyCalendarPage(),
     const MyPageScreen(),
   ];
 
@@ -42,19 +42,19 @@ class _RoutePageState extends State<RoutePage> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'ホーム',
+            label: 'Home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
-            label: '検索',
+            label: 'Search',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_box),
-            label: '投稿',
+            icon: Icon(Icons.event),
+            label: 'event',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'マイページ',
+            label: 'mypage',
           ),
         ],
       ),

@@ -1,24 +1,27 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/places.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shibuya_app/env/env.dart';
 import 'package:shibuya_app/models/place_repository.dart';
 import 'package:shibuya_app/models/spots.dart';
 import 'package:exif/exif.dart';
 import 'dart:io';
+import 'package:shibuya_app/service/firestore_service.dart';
+import 'package:shibuya_app/src/screens/language/global_language.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final File? photo;
+  const HomeScreen({super.key, this.photo});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _initialPosition = LatLng(35.6586, 139.7454);
+  final _initialPosition = const LatLng(35.6586, 139.7454);
   GoogleMapController? mapController;
   final TextEditingController _searchController = TextEditingController();
   Spot? selectedSpot;
@@ -52,9 +55,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation(); // 現在地取得
+    if (widget.photo != null) {
+      _displayRouteFromPhoto(widget.photo!);
+    }
   }
 
-  Future<void> displayRouteFromPhoto(File photo) async {
+  Future<void> _displayRouteFromPhoto(File photo) async {
     final LatLng? destination = await _getLatLngFromPhoto(photo);
 
     if (destination == null) {
@@ -62,12 +68,12 @@ class _HomeScreenState extends State<HomeScreen> {
         // ignore: use_build_context_synchronously
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text("位置情報が見つかりません"),
-          content: const Text("この写真には位置情報が含まれていません。"),
+          title: const TranslatedText(text: "位置情報が見つかりません"),
+          content: const TranslatedText(text: "この写真には位置情報が含まれていません。"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
+              child: const TranslatedText(text: "OK"),
             ),
           ],
         ),
@@ -76,7 +82,38 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     Position currentPosition = await Geolocator.getCurrentPosition(
-      // ignore: deprecated_member_use
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    LatLng currentLatLng = LatLng(currentPosition.latitude, currentPosition.longitude);
+
+    markers.clear();
+    markers.add(Marker(markerId: const MarkerId('current'), position: currentLatLng));
+    markers.add(Marker(markerId: const MarkerId('destination'), position: destination));
+
+    await _drawRoute(currentLatLng, destination);
+  }
+
+  Future<void> displayRouteFromPhoto(File photo) async {
+    final LatLng? destination = await _getLatLngFromPhoto(photo);
+
+    if (destination == null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const TranslatedText(text: "位置情報が見つかりません"),
+          content: const TranslatedText(text: "この写真には位置情報が含まれていません。"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const TranslatedText(text: "OK"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    Position currentPosition = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
     LatLng currentLatLng = LatLng(currentPosition.latitude, currentPosition.longitude);
@@ -113,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _drawRoute(LatLng origin, LatLng destination) async {
     try {
-      // Directions API を呼び出してルートを取得
       PolylinePoints polylinePoints = PolylinePoints();
       PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
         Env.key,
@@ -122,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (result.points.isNotEmpty) {
-        // ポリラインのポイントを作成
         List<LatLng> polylineCoordinates = result.points
             .map((point) => LatLng(point.latitude, point.longitude))
             .toList();
@@ -139,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         });
 
-        // カメラを両地点が見える範囲に調整
         LatLngBounds bounds;
         if (origin.latitude > destination.latitude) {
           bounds = LatLngBounds(
@@ -160,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 入力文字列による検索結果をGoogleMapApiから取得する
+  // 入力文字列による検索結果を取得
   void _searchPossiblePlacesList(String string) async {
     print("検索文字列: $string");
 
@@ -168,20 +202,18 @@ class _HomeScreenState extends State<HomeScreen> {
     PlacesAutocompleteResponse placesAutocompleteResponse =
         await placeRepository.getAutocomplete(string);
 
-    // placesAutocompleteResponse の内容を確認する
     print("PlacesAutocompleteResponse: ${placesAutocompleteResponse.toJson()}");
 
-    // 予測候補が存在する場合のみ処理を行う
     if (placesAutocompleteResponse.predictions.isNotEmpty) {
       print("予測候補: ${placesAutocompleteResponse.predictions}");
 
       for (var prediction in placesAutocompleteResponse.predictions) {
-        if (prediction.placeId != null) { // Nullチェックを追加
+        if (prediction.placeId != null) {
           result.add({
             "placeId": prediction.placeId!,
             "description": prediction.description,
           });
-          print("placeId？に入ってくる値$result");
+          print("placeId: ${result}");
         }
       }
 
@@ -193,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // リストをタップされたら、placeIdから詳細情報を取ってくる
+  // リストタップ時の処理
   void _onTapList(int index) async {
     final placeId = searchedValue[index]["placeId"];
     PlacesDetailsResponse placesDetailsResponse =
@@ -221,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
         placeId: placeId,
         name: name,
         address: address,
-        location: GeoPoint(location.lat, location.lng),
+        location: LatLng(location.lat, location.lng),
         comment: "",
       );
 
@@ -245,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await _drawRoute(currentLatLng, LatLng(location.lat, location.lng));
 
-    // 非モーダルシートを表示
+    // ボトムシート表示
     if (context.mounted) {
       // ignore: use_build_context_synchronously
       Scaffold.of(context).showBottomSheet(
@@ -255,37 +287,46 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  name,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                TranslatedText(
+                  text: name,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 8),
-                Text(address, style: TextStyle(fontSize: 16)),
-                SizedBox(height: 16),
+                const SizedBox(height: 8),
+                TranslatedText(text: address, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 16),
                 if (selectedPhotoUrl != null)
                   Image.network(
                     selectedPhotoUrl!,
                     height: 300,
                     fit: BoxFit.cover,
                   ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // 登録処理をここに追加
+                  onPressed: () async {
+                    final FirestoreService firestoreService = FirestoreService();
+                    final auth = FirebaseAuth.instance;
+                    final userId = auth.currentUser?.uid.toString();
+
+                    await firestoreService.addToFavorites(userId!, selectedSpot!);
+
+                    // ignore: use_build_context_synchronously
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: TranslatedText(text: '${selectedSpot?.name} がお気に入りに追加されました')),
+                    );
                   },
-                  icon: Icon(Icons.add),
-                  label: Text('登録する'),
+                  icon: const Icon(Icons.add),
+                  label: const TranslatedText(text: 'お気に入り登録する'),
                 ),
               ],
             ),
           );
         },
-        backgroundColor: Colors.white, // ボトムシートの背景色
+        backgroundColor: Colors.white,
       );
     }
   }
 
-  // 検索欄
+  // 検索入力欄
   Widget _buildInput() {
     return Container(
       decoration: BoxDecoration(
@@ -299,28 +340,38 @@ class _HomeScreenState extends State<HomeScreen> {
         style: const TextStyle(fontSize: 13.5),
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear(); // 検索バーをクリア
-              _resetResult(); // 検索結果をリセット
-            },
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  _resetResult();
+                },
+              ),
+            ],
           ),
           hintText: '検索',
+          hintStyle: Theme.of(context).textTheme.bodyMedium,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(128),
+          ),
         ),
         textInputAction: TextInputAction.search,
         onFieldSubmitted: (value) {
-          _searchPossiblePlacesList(value); // 検索を実行
+          _searchPossiblePlacesList(value);
         },
         onChanged: (inputString) {
           if (inputString.isEmpty) {
-            _resetResult(); // 入力が空の場合のみリセット
+            _resetResult();
           }
         },
       ),
     );
   }
 
+  // 検索候補リスト
   Widget _buildSuggestionList() {
     return ListView.builder(
       shrinkWrap: true,
@@ -349,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 地図
+  // 地図ウィジェット
   Widget _buildMap() {
     return GoogleMap(
       myLocationButtonEnabled: false,
@@ -359,17 +410,17 @@ class _HomeScreenState extends State<HomeScreen> {
         zoom: 10,
       ),
       markers: markers,
-      polylines: polylines, // ポリラインを追加
+      polylines: polylines,
       onMapCreated: (tempMapController) {
         mapController = tempMapController;
         if (markers.isNotEmpty) {
-          setState(() {}); // マーカーがあれば更新する
+          setState(() {});
         }
       },
     );
   }
 
-  //　現在地ボタン処理
+  // 現在地ボタン
   Widget _goToCurrentPositionButon() {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
@@ -386,9 +437,9 @@ class _HomeScreenState extends State<HomeScreen> {
         mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
             CameraPosition(
-              target:LatLng(
+              target: LatLng(
                 currentPosition.latitude,
-                currentPosition.longitude
+                currentPosition.longitude,
               ),
               zoom: 14,
             ),
@@ -412,10 +463,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SafeArea(
             child: Container(
-              margin: EdgeInsets.fromLTRB(10, 0, 10, 0),
+              margin: const EdgeInsets.fromLTRB(10, 0, 10, 0),
               child: Stack(
                 children: <Widget>[
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   Column(
                     children: [
                       _buildInput(),
