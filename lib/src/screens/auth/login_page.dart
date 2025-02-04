@@ -3,22 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:shibuya_app/components/my_buttom.dart';
 import 'package:shibuya_app/components/my_textfield.dart';
 import 'package:shibuya_app/components/square_tile.dart';
+import 'package:shibuya_app/routes.dart';
 import 'package:shibuya_app/service/auth_service.dart';
 
-class RegisterPage extends StatefulWidget {
+class LoginPage extends StatefulWidget {
   final Function()? onTap;
-  const RegisterPage({super.key, required this.onTap});
+  const LoginPage({super.key, required this.onTap});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
 
-  void signUserUp() async {
+  final passwordController = TextEditingController();
+
+  void signUserIn() async {
     // show loading circle
     showDialog(
         context: context,
@@ -29,19 +30,22 @@ class _RegisterPageState extends State<RegisterPage> {
         });
 
     try {
-      // check if both password and confirm pasword is same
-      if (passwordController.text == confirmPasswordController.text) {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: emailController.text,
-          password: passwordController.text,
-        );
-      } else {
-        //show error password dont match
-        genericErrorMessage("Password don't match!");
-      }
-
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text,
+        password: passwordController.text,
+      );
       // ignore: use_build_context_synchronously
-      Navigator.pop(context);
+      Navigator.pop(context); // ローディングインジケーターを閉じる
+
+      // PostViewPageに遷移
+      // ignore: use_build_context_synchronously
+      Navigator.pushReplacement(
+        // ignore: use_build_context_synchronously
+        context,
+        MaterialPageRoute(
+          builder: (context) => RoutePage(),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
       // ignore: use_build_context_synchronously
       Navigator.pop(context);
@@ -83,18 +87,25 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 50),
                 //logo
                 const Icon(
-                  Icons.lock,
-                  size: 100,
+                  Icons.lock_person,
+                  size: 150,
                 ),
                 const SizedBox(height: 10),
                 //welcome back you been missed
 
+                Text(
+                  'Welcome back!',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 15,
+                  ),
+                ),
                 const SizedBox(height: 25),
 
                 //username
                 MyTextField(
                   controller: emailController,
-                  hintText: 'Username or email',
+                  hintText: 'メールアドレス',
                   obscureText: false,
                 ),
 
@@ -102,24 +113,45 @@ class _RegisterPageState extends State<RegisterPage> {
                 //password
                 MyTextField(
                   controller: passwordController,
-                  hintText: 'Password',
-                  obscureText: true,
-                ),
-                const SizedBox(height: 15),
-
-                MyTextField(
-                  controller: confirmPasswordController,
-                  hintText: 'Confirm Password',
+                  hintText: 'パスワード',
                   obscureText: true,
                 ),
                 const SizedBox(height: 15),
 
                 //sign in button
                 MyButton(
-                  onTap: signUserUp,
-                  text: 'Sign Up',
+                  onTap: signUserIn,
+                  text: 'サインイン',
                 ),
                 const SizedBox(height: 20),
+
+                //forgot passowrd
+
+                Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'ログイン情報をお忘れですか？',
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                      Text(
+                        'ヘルプ',
+                        style: TextStyle(
+                          color: Colors.blue.shade900,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 10,
+                ),
 
                 // continue with
                 Padding(
@@ -181,17 +213,17 @@ class _RegisterPageState extends State<RegisterPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Already have an account? ',
+                      'まだ登録してませんか？',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     GestureDetector(
                       onTap: widget.onTap,
                       child: Text(
-                        'Login now',
+                        '今すぐ登録',
                         style: TextStyle(
                             color: Colors.blue[900],
                             fontWeight: FontWeight.bold,
-                            fontSize: 14),
+                            fontSize: 15),
                       ),
                     ),
                   ],

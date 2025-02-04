@@ -3,43 +3,65 @@ import 'package:flutter/material.dart';
 import 'package:shibuya_app/components/my_buttom.dart';
 import 'package:shibuya_app/components/my_textfield.dart';
 import 'package:shibuya_app/components/square_tile.dart';
+import 'package:shibuya_app/routes.dart';
 import 'package:shibuya_app/service/auth_service.dart';
 
-class LoginPage extends StatefulWidget {
+class RegisterPage extends StatefulWidget {
   final Function()? onTap;
-  const LoginPage({super.key, required this.onTap});
+  const RegisterPage({super.key, required this.onTap});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final emailController = TextEditingController();
-
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
 
-  void signUserIn() async {
+  void signUserUp() async {
     // show loading circle
     showDialog(
-        context: context,
-        builder: (context) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        });
+      context: context,
+      builder: (context) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
-      );
-      // ignore: use_build_context_synchronously
-      Navigator.pop(context);
+      // check if both password and confirm password is same
+      if (passwordController.text == confirmPasswordController.text) {
+        // Firebaseでユーザー登録
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
+
+        // ignore: use_build_context_synchronously
+        Navigator.pop(context); // ローディングインジケーターを閉じる
+
+        // PostViewPageに遷移
+        // ignore: use_build_context_synchronously
+        Navigator.pushReplacement(
+          // ignore: use_build_context_synchronously
+          context,
+          MaterialPageRoute(
+            builder: (context) => RoutePage(),
+          ),
+        );
+      } else {
+        // パスワード不一致エラー
+        genericErrorMessage("パスワードが一致しませんでした。再度お試しください。");
+      }
     } on FirebaseAuthException catch (e) {
+      // ローディングインジケーターを閉じる
       // ignore: use_build_context_synchronously
       Navigator.pop(context);
 
-      genericErrorMessage(e.code);
+      // Firebaseのエラーメッセージを表示
+      genericErrorMessage(e.message ?? "エラーが発生しました。");
     }
   }
 
@@ -74,32 +96,18 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 50),
-                //logo
-                const Icon(
-                  Icons.lock_person,
-                  size: 150,
-                ),
-                const SizedBox(height: 10),
-                //welcome back you been missed
-
-                Text(
-                  'Welcome back!',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 15,
-                  ),
-                ),
+                const Icon(Icons.lock, size: 100),
                 const SizedBox(height: 25),
 
-                //username
+                // メールアドレス入力
                 MyTextField(
                   controller: emailController,
                   hintText: 'メールアドレス',
                   obscureText: false,
                 ),
-
                 const SizedBox(height: 15),
-                //password
+
+                // パスワード入力
                 MyTextField(
                   controller: passwordController,
                   hintText: 'パスワード',
@@ -107,40 +115,20 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 15),
 
-                //sign in button
+                // 確認用パスワード入力
+                MyTextField(
+                  controller: confirmPasswordController,
+                  hintText: '確認用パスワード',
+                  obscureText: true,
+                ),
+                const SizedBox(height: 15),
+
+                // 登録ボタン
                 MyButton(
-                  onTap: signUserIn,
-                  text: 'サインイン',
+                  onTap: signUserUp,
+                  text: 'アカウントを登録',
                 ),
                 const SizedBox(height: 20),
-
-                //forgot passowrd
-
-                Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'ログイン情報をお忘れですか？',
-                        style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 12),
-                      ),
-                      Text(
-                        'ヘルプ',
-                        style: TextStyle(
-                          color: Colors.blue.shade900,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 10,
-                ),
 
                 // continue with
                 Padding(
@@ -172,7 +160,6 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 60),
 
                 //google + apple button
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -196,27 +183,27 @@ class _LoginPageState extends State<LoginPage> {
                   height: 100,
                 ),
 
-                // not a memeber ? register now
-
+                // ログインリンク
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'まだ登録してませんか？',
+                      'すでにアカウントをお持ちですか？',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
-                    GestureDetector(
-                      onTap: widget.onTap,
+                    TextButton(
+                      onPressed: widget.onTap,
                       child: Text(
-                        '今すぐ登録',
+                        '今すぐログイン',
                         style: TextStyle(
-                            color: Colors.blue[900],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15),
+                          color: Colors.blue[900],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),

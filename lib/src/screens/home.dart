@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,6 +9,7 @@ import 'package:shibuya_app/models/place_repository.dart';
 import 'package:shibuya_app/models/spots.dart';
 import 'package:exif/exif.dart';
 import 'dart:io';
+import 'package:shibuya_app/service/firestore_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final File? photo;
@@ -304,8 +306,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // 登録処理をここに追加
+                  onPressed: () async {
+                    // お気に入り登録処理
+                    final FirestoreService firestoreService = FirestoreService();
+                    final auth = FirebaseAuth.instance;
+                    final userId = auth.currentUser?.uid.toString();
+
+                    await firestoreService.addToFavorites(userId!, selectedSpot!);
+
+                    // ignore: use_build_context_synchronously
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${selectedSpot?.name} がお気に入りに追加されました')),
+                    );
                   },
                   icon: Icon(Icons.add),
                   label: Text('お気に入り登録する'),
@@ -343,16 +355,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   _resetResult(); // 検索結果をリセット
                 },
               ),
-              IconButton(
-                icon: Icon(
-                  Icons.sort, // ソートボタン
-                  size: 20,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-                onPressed: () {
-                  //ソート選択のダイアログなどを実装
-                },
-              ),
+              // IconButton(
+              //   icon: Icon(
+              //     Icons.sort, // ソートボタン
+              //     size: 20,
+              //     color: Theme.of(context).colorScheme.secondary,
+              //   ),
+              //   onPressed: () {
+              //     //ソート選択のダイアログなどを実装
+              //   },
+              // ),
             ],
           ),
           hintText: '検索', // 初期ヒントテキスト
@@ -439,9 +451,9 @@ class _HomeScreenState extends State<HomeScreen> {
         mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
             CameraPosition(
-              target:LatLng(
+              target: LatLng(
                 currentPosition.latitude,
-                currentPosition.longitude
+                currentPosition.longitude,
               ),
               zoom: 14,
             ),

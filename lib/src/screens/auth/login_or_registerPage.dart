@@ -1,7 +1,7 @@
 // ignore_for_file: file_names
 import 'package:flutter/material.dart';
-import 'package:shibuya_app/screens/login_page.dart';
-import 'package:shibuya_app/screens/register_page.dart';
+import 'package:shibuya_app/src/screens/auth/login_page.dart';
+import 'package:shibuya_app/src/screens/auth/register_page.dart';
 
 class LoginOrRegisterPage extends StatefulWidget {
   const LoginOrRegisterPage({super.key});

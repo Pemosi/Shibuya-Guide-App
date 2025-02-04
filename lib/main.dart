@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shibuya_app/env/env.dart';
 import 'package:shibuya_app/firebase_options.dart';
-import 'package:shibuya_app/screens/login_page.dart';
+import 'package:shibuya_app/src/screens/auth/login_or_registerPage.dart';
 
 
 Future<void> main() async {
@@ -33,10 +33,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '渋谷観光ガイドアプリ',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: LoginPage(onTap: () {}),
+      home: LoginOrRegisterPage(),
     );
   }
 }

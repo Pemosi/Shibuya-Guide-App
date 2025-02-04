@@ -29,8 +29,7 @@ class FavoritesScreen extends StatelessWidget {
                 subtitle: Text(spot.address),
                 trailing: ElevatedButton(
                   onPressed: () {
-                    onSelectSpot(spot);
-                    Navigator.pop(context); // ホームに戻る
+                    //ここにHomeScreenのGoogle Mapを表示させる処理
                   },
                   child: Text("Google Mapで表示"),
                 ),

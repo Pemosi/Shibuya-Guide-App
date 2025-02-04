@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shibuya_app/screens/take_picture_screen.dart';
+import 'package:shibuya_app/src/screens/take_picture_screen.dart';
 import 'package:shibuya_app/service/location_service.dart';
 import 'package:shibuya_app/service/storage_service.dart';
 import 'package:shibuya_app/service/user_service.dart';
@@ -66,6 +66,7 @@ class _PostScreenState extends State<PostScreen> {
       try {
         String? imageUrl;
 
+        // 画像が選択されている場合のみアップロード
         if (_image != null) {
           imageUrl = await StorageService.uploadImage(_image!);
         }
@@ -78,7 +79,7 @@ class _PostScreenState extends State<PostScreen> {
         await FirebaseFirestore.instance.collection('posts').add({
           'title': _titleController.text,
           'description': _descriptionController.text,
-          'imageUrl': imageUrl,
+          'imageUrl': imageUrl,  // 画像URLは画像が選択された場合のみ追加
           'latitude': _currentPosition!.latitude,
           'longitude': _currentPosition!.longitude,
           'createdAt': FieldValue.serverTimestamp(),
@@ -101,6 +102,7 @@ class _PostScreenState extends State<PostScreen> {
           _image = null;
         });
       } catch (e) {
+        print("Error: $e");
         // エラーメッセージを表示
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +121,6 @@ class _PostScreenState extends State<PostScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('投稿'),
-        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -130,9 +131,21 @@ class _PostScreenState extends State<PostScreen> {
             children: [
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '場所名',
-                  hintText: '例: 渋谷スクランブル交差点',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0), // 角を丸くする
+                    borderSide: BorderSide(color: Colors.blueAccent, width: 1.5), // 枠線の色と太さ
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.blue, width: 2.0), // フォーカス時の枠線
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.grey, width: 1.5), // 通常時の枠線
+                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0), // パディングを調整
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -144,9 +157,21 @@ class _PostScreenState extends State<PostScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '詳細情報',
-                  hintText: '場所についての詳細情報',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.blueAccent, width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.blue, width: 2.0),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide(color: Colors.grey, width: 1.5),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
                 ),
                 maxLines: 3,
                 validator: (value) {

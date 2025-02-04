@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shibuya_app/screens/home.dart';
+import 'package:shibuya_app/src/screens/home.dart';
+import 'package:shibuya_app/src/screens/post_screen.dart';
 
 class PostViewPage extends StatelessWidget {
   final Function(File photo) onWantToGoPressed;
@@ -227,6 +228,20 @@ class PostViewPage extends StatelessWidget {
             );
           },
         ),
+      ),
+      // 右下に投稿ボタンを追加
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // 投稿画面に遷移
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostScreen(),
+            ),
+          );
+        },
+        tooltip: '投稿する',
+        child: const Icon(Icons.add),
       ),
     );
   }
