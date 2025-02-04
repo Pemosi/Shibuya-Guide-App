@@ -42,19 +42,19 @@ class _RoutePageState extends State<RoutePage> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'ホーム',
+            label: 'Home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
-            label: '検索',
+            label: 'Search',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.event),
-            label: 'イベント',
+            label: 'event',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'マイページ',
+            label: 'mypage',
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shibuya_app/service/user_service.dart';
@@ -20,6 +21,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String? newProfileImageUrl;
   final TextEditingController _userNameController = TextEditingController();
   final UserService _userService = UserService();
+  bool _isLoading = false; // ローディング中かどうか
 
   @override
   void initState() {
@@ -29,10 +31,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _userNameController.text = newUserName ?? '';
   }
 
+  // 画像を選択するメソッド
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile == null) return;
+
+    setState(() {
+      _isLoading = true; // 画像アップロード中
+    });
 
     // 画像ファイルを取得
     File imageFile = File(pickedFile.path);
@@ -46,12 +53,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (downloadUrl != null) {
       setState(() {
         newProfileImageUrl = downloadUrl;  // 画像URLを更新
+        _isLoading = false; // ローディング終了
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('プロフィール編集', style: TextStyle(color: Colors.white)),
@@ -67,13 +77,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               child: CircleAvatar(
                 radius: 60,
                 backgroundColor: Colors.transparent,
-                backgroundImage: newProfileImageUrl != null && newProfileImageUrl!.isNotEmpty
-                    ? (newProfileImageUrl!.startsWith('http')  // URLかローカルファイルかをチェック
+                backgroundImage: _isLoading
+                    ? const AssetImage('assets/images/loading.gif') // ローディング中の画像
+                    : newProfileImageUrl != null && newProfileImageUrl!.isNotEmpty
                         ? NetworkImage(newProfileImageUrl!)
-                        : File(newProfileImageUrl!).existsSync()  // ローカルファイルが存在するか
-                          ? FileImage(File(newProfileImageUrl!))
-                          : const AssetImage('assets/images/icon.png') as ImageProvider)
-                    : const AssetImage('assets/images/icon.png') as ImageProvider,
+                        : const AssetImage('assets/images/icon.png') as ImageProvider,
               ),
             ),
             const SizedBox(height: 16),
@@ -88,6 +96,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 final updatedUserName = _userNameController.text;
                 if (updatedUserName.isNotEmpty) {
                   await _userService.saveUserName(updatedUserName);
+                  setState(() {
+                    newUserName = updatedUserName; // ユーザー名を更新
+                  });
                 }
                 if (newProfileImageUrl != null) {
                   await _userService.saveProfileImageUrl(newProfileImageUrl!);
@@ -96,6 +107,36 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 Navigator.pop(context);
               },
               child: const Text("保存"),
+            ),
+            const SizedBox(height: 16),
+            // ユーザー名と画像のリアルタイム表示
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircularProgressIndicator();
+                }
+
+                if (snapshot.hasData && snapshot.data != null) {
+                  final userData = snapshot.data!;
+                  final userName = userData['userName'] ?? '';
+                  final profileImageUrl = userData['profileImageUrl'] ?? '';
+
+                  return Column(
+                    children: [
+                      Text('現在のユーザー名: $userName'),
+                      const SizedBox(height: 8),
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundImage: profileImageUrl.isNotEmpty
+                            ? NetworkImage(profileImageUrl)
+                            : const AssetImage('assets/images/icon.png') as ImageProvider,
+                      ),
+                    ],
+                  );
+                }
+                return const Text('データ取得エラー');
+              },
             ),
           ],
         ),

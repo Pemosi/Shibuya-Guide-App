@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shibuya_app/src/screens/language/global_language.dart';
 import 'package:shibuya_app/src/screens/take_picture_screen.dart';
 import 'package:shibuya_app/service/location_service.dart';
 import 'package:shibuya_app/service/storage_service.dart';
@@ -32,15 +33,13 @@ class _PostScreenState extends State<PostScreen> {
 
   Future<void> _getCurrentLocation() async {
     _currentPosition = await LocationService.getCurrentLocation(context);
-    setState(() {}); // 画面更新
+    setState(() {});
   }
 
   Future<void> _takePicture() async {
     final result = await Navigator.push<File>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TakePictureScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const TakePictureScreen()),
     );
 
     if (result != null) {
@@ -65,45 +64,33 @@ class _PostScreenState extends State<PostScreen> {
     if (_formKey.currentState!.validate() && _currentPosition != null) {
       try {
         String? imageUrl;
-
-        // 画像が選択されている場合のみアップロード
         if (_image != null) {
           imageUrl = await StorageService.uploadImage(_image!);
         }
-
-        // UserService を使用してユーザー名を取得
         final userName = await UserService().getUserName() ?? 'Unknown User';
         final userId = FirebaseAuth.instance.currentUser!.uid;
-
-        // 投稿データを Firestore に保存
         await FirebaseFirestore.instance.collection('posts').add({
           'title': _titleController.text,
           'description': _descriptionController.text,
-          'imageUrl': imageUrl,  // 画像URLは画像が選択された場合のみ追加
+          'imageUrl': imageUrl,
           'latitude': _currentPosition!.latitude,
           'longitude': _currentPosition!.longitude,
           'createdAt': FieldValue.serverTimestamp(),
-          'userName': userName, // ユーザー名を保存
-          'userId': userId, // ユーザーIDも保存
+          'userName': userName,
+          'userId': userId,
           'likedBy': [],
           'likeCount': 0,
         });
-
-        // 成功メッセージを表示
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('投稿が成功しました！')),
         );
-
-        // 入力フィールドと選択した画像をリセット
         _titleController.clear();
         _descriptionController.clear();
         setState(() {
           _image = null;
         });
       } catch (e) {
-        print("Error: $e");
-        // エラーメッセージを表示
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('投稿に失敗しました: $e')),
@@ -116,11 +103,41 @@ class _PostScreenState extends State<PostScreen> {
     }
   }
 
+  // ここではプレビュー用の翻訳ボタンもそのまま残しています
+  Future<void> _previewTranslation() async {
+    if (_titleController.text.isEmpty && _descriptionController.text.isEmpty) return;
+    // 英語に翻訳する例
+    final titleTranslation = await globalTranslator.translate(_titleController.text, to: 'en');
+    final descriptionTranslation = await globalTranslator.translate(_descriptionController.text, to: 'en');
+    showDialog(
+      // ignore: use_build_context_synchronously
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('英語翻訳プレビュー'),
+        content: SingleChildScrollView(
+          child: ListBody(
+            children: [
+              Text('場所名: ${titleTranslation.text}'),
+              const SizedBox(height: 8),
+              Text('詳細情報: ${descriptionTranslation.text}'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('投稿'),
+        title: TranslatedText(text: '投稿', style: const TextStyle(fontSize: 20)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -132,20 +149,20 @@ class _PostScreenState extends State<PostScreen> {
               TextFormField(
                 controller: _titleController,
                 decoration: InputDecoration(
-                  labelText: '場所名',
+                  labelText: null, // 下記でウィジェットとして表示
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0), // 角を丸くする
-                    borderSide: BorderSide(color: Colors.blueAccent, width: 1.5), // 枠線の色と太さ
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide(color: Colors.blue, width: 2.0), // フォーカス時の枠線
+                    borderSide: const BorderSide(color: Colors.blue, width: 2.0),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide(color: Colors.grey, width: 1.5), // 通常時の枠線
+                    borderSide: const BorderSide(color: Colors.grey, width: 1.5),
                   ),
-                  contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0), // パディングを調整
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -154,24 +171,27 @@ class _PostScreenState extends State<PostScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 4),
+              // ラベルは TranslatedText で表示（選択言語に応じて翻訳）
+              TranslatedText(text: '場所名', style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
-                  labelText: '詳細情報',
+                  labelText: null,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide(color: Colors.blueAccent, width: 1.5),
+                    borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide(color: Colors.blue, width: 2.0),
+                    borderSide: const BorderSide(color: Colors.blue, width: 2.0),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide(color: Colors.grey, width: 1.5),
+                    borderSide: const BorderSide(color: Colors.grey, width: 1.5),
                   ),
-                  contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
                 ),
                 maxLines: 3,
                 validator: (value) {
@@ -181,34 +201,41 @@ class _PostScreenState extends State<PostScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 4),
+              TranslatedText(text: '詳細情報', style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 16),
               _image != null
-                ? Image.file(
-                    _image!,
-                    width: double.infinity,
-                    height: 300,
-                    fit: BoxFit.contain,
-                  )
-                : const Text(
-                    '写真が選択されていません',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                  ? Image.file(
+                      _image!,
+                      width: double.infinity,
+                      height: 300,
+                      fit: BoxFit.contain,
+                    )
+                  : TranslatedText(
+                      text: '写真が選択されていません',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _takePicture,
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('カメラで撮影'),
+                label: TranslatedText(text: 'カメラで撮影'),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _selectFromGallery,
                 icon: const Icon(Icons.photo_library),
-                label: const Text('ギャラリーから選択'),
+                label: TranslatedText(text: 'ギャラリーから選択'),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _savePost,
-                child: const Text('投稿する'),
+                child: TranslatedText(text: '投稿する'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _previewTranslation,
+                child: TranslatedText(text: '英語翻訳プレビュー'),
               ),
             ],
           ),

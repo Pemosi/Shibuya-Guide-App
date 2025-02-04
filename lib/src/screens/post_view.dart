@@ -1,11 +1,11 @@
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shibuya_app/src/screens/home.dart';
+import 'package:shibuya_app/src/screens/language/global_language.dart';
 import 'package:shibuya_app/src/screens/post_screen.dart';
 
 class PostViewPage extends StatelessWidget {
@@ -57,7 +57,7 @@ class PostViewPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('投稿一覧'),
+        title: TranslatedText(text: '投稿一覧', style: const TextStyle(fontSize: 20)),
         automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(
@@ -72,7 +72,12 @@ class PostViewPage extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(child: Text('投稿がありません'));
+              return Center(
+                child: TranslatedText(
+                  text: '投稿がありません',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              );
             }
 
             final posts = snapshot.data!.docs;
@@ -97,17 +102,23 @@ class PostViewPage extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  post['title'],
+                                TranslatedText(
+                                  text: post['title'],
                                   style: const TextStyle(
                                     fontSize: 18.0,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 4.0),
+                                // ユーザー名と元の説明文
                                 Text(
                                   '${post['userName']} - ${post['description']}',
                                   style: const TextStyle(color: Colors.grey),
+                                ),
+                                // 翻訳した説明文を表示
+                                TranslatedText(
+                                  text: post['description'],
+                                  style: const TextStyle(color: Colors.blueAccent, fontStyle: FontStyle.italic),
                                 ),
                               ],
                             ),
@@ -141,7 +152,7 @@ class PostViewPage extends StatelessWidget {
                                         ? Colors.blue
                                         : Colors.grey,
                                   ),
-                                  label: Text('いいね ($likeCount)'),
+                                  label: TranslatedText(text: 'いいね！ ($likeCount)'),
                                 ),
                                 TextButton.icon(
                                   onPressed: () async {
@@ -164,12 +175,12 @@ class PostViewPage extends StatelessWidget {
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
-                                          title: const Text("画像がありません"),
-                                          content: const Text("位置情報を取得するには画像が必要です。"),
+                                          title: TranslatedText(text: "画像がありません"),
+                                          content: TranslatedText(text: "位置情報を取得するには画像が必要です。"),
                                           actions: [
                                             TextButton(
                                               onPressed: () => Navigator.pop(context),
-                                              child: const Text("OK"),
+                                              child: TranslatedText(text: "OK"),
                                             ),
                                           ],
                                         ),
@@ -177,7 +188,7 @@ class PostViewPage extends StatelessWidget {
                                     }
                                   },
                                   icon: Icon(Icons.location_on, color: Colors.green),
-                                  label: Text("行ってみたい"),
+                                  label: TranslatedText(text: '行ってみたい'),
                                 ),
                               ],
                             ),
@@ -193,19 +204,19 @@ class PostViewPage extends StatelessWidget {
                               showDialog(
                                 context: context,
                                 builder: (context) => AlertDialog(
-                                  title: const Text('確認'),
-                                  content: const Text('この投稿を削除しますか？'),
+                                  title: TranslatedText(text: '確認'),
+                                  content: TranslatedText(text: 'この投稿を削除しますか？'),
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.pop(context),
-                                      child: const Text('キャンセル'),
+                                      child: TranslatedText(text: 'キャンセル'),
                                     ),
                                     TextButton(
                                       onPressed: () async {
                                         Navigator.pop(context);
                                         await _deletePost(postId);
                                       },
-                                      child: const Text('削除'),
+                                      child: TranslatedText(text: '削除'),
                                     ),
                                   ],
                                 ),
@@ -213,9 +224,9 @@ class PostViewPage extends StatelessWidget {
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'delete',
-                              child: Text('削除'),
+                              child: TranslatedText(text: '削除'),
                             ),
                           ],
                           icon: const Icon(Icons.more_vert),
@@ -229,15 +240,11 @@ class PostViewPage extends StatelessWidget {
           },
         ),
       ),
-      // 右下に投稿ボタンを追加
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // 投稿画面に遷移
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => PostScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const PostScreen()),
           );
         },
         tooltip: '投稿する',

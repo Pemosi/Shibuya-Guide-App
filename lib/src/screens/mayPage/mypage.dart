@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shibuya_app/src/screens/auth/login_or_registerPage.dart';
 import 'package:shibuya_app/src/screens/favorite.dart';
+import 'package:shibuya_app/src/screens/language/global_language.dart';
 import 'package:shibuya_app/src/screens/mayPage/profile_edit_screen.dart';
 import 'package:shibuya_app/service/user_service.dart';
 import 'dart:io';
+import 'package:shibuya_app/src/screens/mayPage/settings_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -55,7 +57,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final downloadUrl = await _userService.uploadProfileImage(imageFile);
     if (downloadUrl != null) {
       setState(() {
-        profileImageUrl = downloadUrl;  // 新しい画像URLをセット
+        profileImageUrl = downloadUrl; // 新しい画像URLをセット
       });
     }
   }
@@ -65,7 +67,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('マイページ', style: TextStyle(fontSize: 24, color: Colors.white)),
+        // AppBar のタイトルを TranslatedText でラップ
+        title: TranslatedText(
+          text: 'マイページ',
+          style: const TextStyle(fontSize: 24, color: Colors.white),
+        ),
         backgroundColor: Colors.blue,
       ),
       body: Padding(
@@ -80,8 +86,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     radius: 40,
                     backgroundColor: Colors.transparent,
                     backgroundImage: (profileImageUrl == null || profileImageUrl!.isEmpty)
-                      ? const AssetImage('assets/images/icon.png')  // 初期画像
-                      : NetworkImage(profileImageUrl!) as ImageProvider,  // 新しい画像URL
+                        ? const AssetImage('assets/images/icon.png')
+                        : NetworkImage(profileImageUrl!) as ImageProvider,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -89,20 +95,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      // ユーザー名はそのまま表示（動的な内容なので翻訳不要）
+                      Text(userName,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProfileEditScreen(userName: userName, profileImageUrl: profileImageUrl),
+                              builder: (context) => ProfileEditScreen(
+                                  userName: userName,
+                                  profileImageUrl: profileImageUrl),
                             ),
                           );
                         },
-                        child: const Text(
-                          "プロフィールを編集",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        // 「プロフィールを編集」も TranslatedText で表示
+                        child: TranslatedText(
+                          text: "プロフィールを編集",
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -127,19 +140,32 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("ログインが必要です。")),
+                        SnackBar(
+                          content: TranslatedText(
+                            text: "ログインが必要です。",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
                       );
                     }
                   }),
                   _buildListTile('いいね！履歴', Icons.thumb_up, () {}),
                   _buildListTile('ヘルプ', Icons.help, () {}),
-                  _buildListTile('各種設定', Icons.settings, () {}),
+                  _buildListTile('各種設定', Icons.settings, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  }),
                   _buildListTile('ログアウト', Icons.logout, () async {
                     await FirebaseAuth.instance.signOut();
                     Navigator.pushReplacement(
                       // ignore: use_build_context_synchronously
                       context,
-                      MaterialPageRoute(builder: (context) => LoginOrRegisterPage()),
+                      MaterialPageRoute(
+                          builder: (context) => LoginOrRegisterPage()),
                     );
                   }),
                 ],
@@ -154,7 +180,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Widget _buildListTile(String title, IconData icon, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, size: 32),
-      title: Text(title, style: const TextStyle(fontSize: 16)),
+      // タイトルも TranslatedText で表示
+      title: TranslatedText(
+        text: title,
+        style: const TextStyle(fontSize: 16),
+      ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
